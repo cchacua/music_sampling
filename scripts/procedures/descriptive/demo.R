@@ -4,54 +4,38 @@
 
 countings_preliminary<-function(type="s"){
   print("Type s for source and d for destination")
+  if(type=="s"){
+    type<-"source"
+  }
+  if(type=="d"){
+    type<-"dest"
+  }
+  else{"Type either s or d"}
   
   # Number of matched source songs (or the songs that appear in both MB and WIS)
-  source_songs_m <- dbGetQuery(con, 
-                               "SELECT COUNT(DISTINCT b.source_track_musicbrainz_id)
+  matched<- dbGetQuery(con, paste0("SELECT COUNT(DISTINCT b.",type,"_track_musicbrainz_id)
                             FROM musicbrainz.whois b
                             INNER JOIN musicbrainz.recording a
-                            ON b.source_track_musicbrainz_id=a.gid;")
+                            ON b.",type,"_track_musicbrainz_id=a.gid;"))
   
   # Number of source songs with MB ID in WIS
-  source_songs_nm_mb <- dbGetQuery(con, 
-                                   "SELECT COUNT(DISTINCT a.source_track_musicbrainz_id)
-                            FROM musicbrainz.whois a;")
+  wis_id <- dbGetQuery(con, 
+                       paste0("SELECT COUNT(DISTINCT a.",type,"_track_musicbrainz_id)
+                            FROM musicbrainz.whois a;"))
   
   
   # Number of total source songs in WIS (Using track_id)
-  source_songs_t <- dbGetQuery(con, 
-                               "SELECT COUNT(DISTINCT a.source_track_id)
-                            FROM musicbrainz.whois a;")
-  
+  wis_t <- dbGetQuery(con, 
+                      paste0("SELECT COUNT(DISTINCT a.",type,"_track_id)
+                            FROM musicbrainz.whois a;"))
+  return(list(matched=matched, wis_id=wis_id, wis_t=wis_t))
 }
 
+source<-countings_preliminary("s")
 
+source$matched
 
-#######################################################
-# Number of matched destination songs
-desti_songs_m <- dbGetQuery(con, 
-                           "SELECT COUNT(DISTINCT b.dest_track_musicbrainz_id)
-                            FROM musicbrainz.whois b
-                            INNER JOIN musicbrainz.recording a
-                            ON b.dest_track_musicbrainz_id=a.gid;")
-# desti_songs_ <- dbGetQuery(con,
-#                           "SELECT COUNT(DISTINCT a.gid)
-#                             FROM musicbrainz.whois b
-#                             INNER JOIN musicbrainz.recording a
-#                             ON b.dest_track_musicbrainz_id=a.gid;")
-
-# Number of total destination songs
-desti_songs_t <- dbGetQuery(con, 
-                              "SELECT COUNT(DISTINCT a.dest_track_name)
-                            FROM musicbrainz.whois a;")
-
-#######################################################
-# Number of links with the missing source ID 
-
-desti_songs_t <- dbGetQuery(con, 
-                            "SELECT COUNT(DISTINCT a.dest_track_name)
-                            FROM musicbrainz.whois a;")
-
+dest<-countings_preliminary("d")
 
 
 

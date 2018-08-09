@@ -41,6 +41,26 @@ SELECT a.* FROM musicbrainz.whois a LIMIT 10 OFFSET 2;
 SELECT a.* FROM musicbrainz.whois a WHERE a.connection_id=240730;
 SELECT a.* FROM musicbrainz.whois a WHERE a.connection_id=261886;
 
+SELECT a.source_track_id, a.source_track_name, a.source_track_musicbrainz_id, a.dest_track_id, a.dest_track_name FROM musicbrainz.whois a LIMIT 10;
+
+SELECT a.source_track_name, COUNT(DISTINCT a.source_track_musicbrainz_id)
+ FROM musicbrainz.whois a 
+ GROUP BY a.source_track_name
+ HAVING COUNT(DISTINCT a.source_track_musicbrainz_id)>1
+ LIMIT 100;
+
+SELECT a.source_track_id, COUNT(DISTINCT a.source_track_musicbrainz_id)
+ FROM musicbrainz.whois a 
+ GROUP BY a.source_track_id
+ HAVING COUNT(DISTINCT a.source_track_musicbrainz_id)>1
+ LIMIT 100;
+
+SELECT a.source_track_id, COUNT(DISTINCT a.source_track_name)
+ FROM musicbrainz.whois a 
+ GROUP BY a.source_track_id
+ HAVING COUNT(DISTINCT a.source_track_name)>1
+ LIMIT 100;
+
 --------------------------------------------------------------------------
 -- CREATE INDEX
 --------------------------------------------------------------------------

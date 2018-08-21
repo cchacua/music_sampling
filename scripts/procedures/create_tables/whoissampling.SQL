@@ -25,7 +25,7 @@ source_track_main_artist_id INT,
 source_track_main_artist_name VARCHAR(100),
 source_track_youtube_id VARCHAR(50),
 source_track_musicbrainz_id UUID,
-source_track_main_artist_musicbrainz_id CHAR(36),
+source_track_main_artist_musicbrainz_id UUID,
 CONSTRAINT whois_pkey PRIMARY KEY (connection_id)
 );
 

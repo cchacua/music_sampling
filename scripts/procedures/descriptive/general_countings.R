@@ -63,6 +63,11 @@ countings_type<-function(type="s", dis=TRUE){
   return("Done")
 }
 
+
+
+##################################################################################
+
+
 countings_all<-function(){
   print("All types covered")
   

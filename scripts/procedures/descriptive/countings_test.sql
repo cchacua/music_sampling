@@ -90,7 +90,7 @@ SELECT COUNT(DISTINCT b.source_track_id)
 (1 row)
 */
 
-
+-- JOIN 
 SELECT COUNT(e.source_track_id)
 FROM (
 	SELECT DISTINCT b.source_track_id

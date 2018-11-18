@@ -8,12 +8,78 @@
 -- This table relies on WS artist ID to get the MB artist ID. Thereafter, it would be necessary to collapse by MB artist ID, as the WS artist ID has errors
 DROP TABLE IF EXISTS ws.artists;
 CREATE TABLE ws.artists AS
-	SELECT DISTINCT a.main_artist_id, a.main_artist_name, a.main_artist_musicbrainz_id, string_agg(DISTINCT a.main_genre, ', ' ORDER BY a.main_genre) AS genres
+	SELECT a.main_artist_id, a.main_artist_name, a.main_artist_musicbrainz_id, string_agg(DISTINCT a.main_genre, ', ' ORDER BY a.main_genre) AS genres, COUNT(DISTINCT id) AS rwsids, COUNT(DISTINCT musicbrainz_id) AS rmbids, COUNT(DISTINCT musicbrainz_id)/COUNT(DISTINCT id)::FLOAT8 AS percenmbids
 	FROM ws.records a
 GROUP BY a.main_artist_id, a.main_artist_name, a.main_artist_musicbrainz_id;
+
 /*
+-- ORDER BY percenmbids DESC, rwsids DESC
+
 SELECT 92159
 */
+
+SELECT * FROM ws.artists LIMIT 100;
+
+-- INDEX
+CREATE INDEX trgm_idx ON ws.artists USING GIN (main_artist_name gin_trgm_ops);
+CREATE INDEX idx_name ON ws.artists (main_artist_name);
+CREATE INDEX idx_wsaid ON ws.artists (main_artist_id);
+CREATE INDEX idx_mbaid ON ws.artists (main_artist_musicbrainz_id);
+
+\d ws.artists
+\d musicbrainz.artist
+
+-- LEFT JOIN ON MB ARTIST INFO 
+
+DROP TABLE IF EXISTS ws.artistsmb;
+CREATE TABLE ws.artistsmb AS
+SELECT a.main_artist_id AS wsid, a.main_artist_name AS wsname, f.name AS mbname1, f.sort_name AS mbname2, levenshtein(UPPER(a.main_artist_name), UPPER(f.name)) AS levdis1, levenshtein(UPPER(a.main_artist_name), UPPER(f.sort_name)) AS levdis2, GREATEST(CHAR_LENGTH(a.main_artist_name), CHAR_LENGTH(f.name)) AS maxchar1, GREATEST(CHAR_LENGTH(a.main_artist_name), CHAR_LENGTH(f.name)) AS maxchar2, a. genres, a.rwsids, a.rmbids, a.percenmbids, f.gid, a.main_artist_musicbrainz_id
+	FROM ws.artists a
+	LEFT JOIN (
+		SELECT DISTINCT b.name, b.sort_name, b.gid, a.main_artist_musicbrainz_id
+			FROM ws.artists a
+			INNER JOIN musicbrainz.artist b
+			ON a.main_artist_musicbrainz_id=b.gid
+		UNION
+		SELECT DISTINCT c.name, c.sort_name, c.gid, a.main_artist_musicbrainz_id
+			FROM ws.artists a
+			INNER JOIN musicbrainz.artist_gid_redirect b
+			ON a.main_artist_musicbrainz_id=b.gid
+			INNER JOIN musicbrainz.artist c
+			ON b.gid=c.gid) f
+	ON a.main_artist_musicbrainz_id=f.main_artist_musicbrainz_id
+	ORDER BY 1;
+
+
+SELECT * FROM ws.artistsmb ORDER BY mbname1 LIMIT 100;
+SELECT * FROM ws.artistsmb WHERE gid IS NULL LIMIT 100;
+SELECT COUNT (DISTINCT gid) FROM ws.artistsmb;
+/* 
+ count 
+-------
+ 60957
+(1 row)
+*/
+
+SELECT COUNT (DISTINCT main_artist_musicbrainz_id) FROM ws.artistsmb;
+/*
+ count 
+-------
+ 61097
+(1 row)
+*/
+
+SELECT * FROM musicbrainz.artist WHERE gid='56a764a5-2646-4c5b-be28-f0100e322c82';
+SELECT b.* FROM musicbrainz.artist a
+INNER JOIN  musicbrainz.artist_alias b ON a.id=b.artist
+WHERE a.gid='56a764a5-2646-4c5b-be28-f0100e322c82';
+
+SELECT similarity('Hideki Kaji', 'Kaji, Hideki');
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+--
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
 
 -- Statistics of artists with MB-artist ID
 SELECT genres, COUNT(*) FROM ws.artists WHERE main_artist_musicbrainz_id IS NULL GROUP BY genres ORDER BY COUNT(*);
@@ -100,10 +166,8 @@ char_length | count
 -----------------------------------------------------------------------------------------
 CREATE EXTENSION pg_trgm;
 
-CREATE INDEX trgm_idx ON ws.artists USING GIN (main_artist_name gin_trgm_ops);
-CREATE INDEX idx_name ON ws.artists (main_artist_name);
-CREATE INDEX idx_wsaid ON ws.artists (main_artist_id);
-CREATE INDEX idx_mbaid ON ws.artists (main_artist_musicbrainz_id);
+-- CREATE INDEX trgm_idx ON ws.artists USING GIN (main_artist_name gin_trgm_ops);
+
 -- To see indexes
 \d ws.artists
 \d musicbrainz.artist

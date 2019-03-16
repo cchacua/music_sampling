@@ -29,35 +29,68 @@ CREATE INDEX idx_mbaid ON ws.artists (main_artist_musicbrainz_id);
 \d ws.artists
 \d musicbrainz.artist
 
--- LEFT JOIN ON MB ARTIST INFO 
+-- LEFT JOIN ON MB ARTIST INFO USING NAMES AND ALIASES TO EVALUATE QUALITY
+-- All the statistics are computed using UPPER cases
 
 DROP TABLE IF EXISTS ws.artistsmb;
 CREATE TABLE ws.artistsmb AS
-SELECT a.main_artist_id AS wsid, a.main_artist_name AS wsname, f.name AS mbname1, f.sort_name AS mbname2, levenshtein(UPPER(a.main_artist_name), UPPER(f.name)) AS levdis1, levenshtein(UPPER(a.main_artist_name), UPPER(f.sort_name)) AS levdis2, GREATEST(CHAR_LENGTH(a.main_artist_name), CHAR_LENGTH(f.name)) AS maxchar1, GREATEST(CHAR_LENGTH(a.main_artist_name), CHAR_LENGTH(f.name)) AS maxchar2, a. genres, a.rwsids, a.rmbids, a.percenmbids, f.gid, a.main_artist_musicbrainz_id
+SELECT a.main_artist_id AS wsid, a.main_artist_name AS wsname, f.name AS mbname1, similarity(UPPER(a.main_artist_name), UPPER(f.name)), levenshtein(UPPER(a.main_artist_name), UPPER(f.name)) AS levdis1, GREATEST(CHAR_LENGTH(a.main_artist_name), CHAR_LENGTH(f.name)) AS maxchar1, a. genres, a.rwsids, a.rmbids, a.percenmbids, f.gid, a.main_artist_musicbrainz_id
 	FROM ws.artists a
 	LEFT JOIN (
-		SELECT DISTINCT b.name, b.sort_name, b.gid, a.main_artist_musicbrainz_id
+		SELECT DISTINCT b.name, b.gid, a.main_artist_musicbrainz_id
 			FROM ws.artists a
 			INNER JOIN musicbrainz.artist b
 			ON a.main_artist_musicbrainz_id=b.gid
 		UNION
-		SELECT DISTINCT c.name, c.sort_name, c.gid, a.main_artist_musicbrainz_id
+		SELECT DISTINCT b.sort_name AS name, b.gid, a.main_artist_musicbrainz_id
+			FROM ws.artists a
+			INNER JOIN musicbrainz.artist b
+			ON a.main_artist_musicbrainz_id=b.gid
+		UNION
+		SELECT DISTINCT c.name, c.gid, a.main_artist_musicbrainz_id
 			FROM ws.artists a
 			INNER JOIN musicbrainz.artist_gid_redirect b
 			ON a.main_artist_musicbrainz_id=b.gid
 			INNER JOIN musicbrainz.artist c
-			ON b.gid=c.gid) f
+			ON b.new_id=c.id
+		UNION
+		SELECT DISTINCT c.sort_name AS name, c.gid, a.main_artist_musicbrainz_id
+			FROM ws.artists a
+			INNER JOIN musicbrainz.artist_gid_redirect b
+			ON a.main_artist_musicbrainz_id=b.gid
+			INNER JOIN musicbrainz.artist c
+			ON b.new_id=c.id
+		UNION
+		SELECT DISTINCT d.name, b.gid, a.main_artist_musicbrainz_id
+			FROM ws.artists a
+			INNER JOIN musicbrainz.artist b
+			ON a.main_artist_musicbrainz_id=b.gid
+			INNER JOIN musicbrainz.artist_alias d
+			ON b.id=d.artist
+		UNION
+		SELECT DISTINCT d.name, c.gid, a.main_artist_musicbrainz_id
+			FROM ws.artists a
+			INNER JOIN musicbrainz.artist_gid_redirect b
+			ON a.main_artist_musicbrainz_id=b.gid
+			INNER JOIN musicbrainz.artist c
+			ON b.new_id=c.id
+			INNER JOIN musicbrainz.artist_alias d
+			ON b.new_id=d.artist) f
 	ON a.main_artist_musicbrainz_id=f.main_artist_musicbrainz_id
 	ORDER BY 1;
+/*
+SELECT 161852
+*/
 
+SELECT * FROM ws.artistsmb ORDER BY mbname1, wsid LIMIT 100;
+SELECT * FROM ws.artistsmb ORDER BY wsid LIMIT 100;
 
-SELECT * FROM ws.artistsmb ORDER BY mbname1 LIMIT 100;
 SELECT * FROM ws.artistsmb WHERE gid IS NULL LIMIT 100;
 SELECT COUNT (DISTINCT gid) FROM ws.artistsmb;
 /* 
  count 
 -------
- 60957
+ 61041
 (1 row)
 */
 
@@ -69,17 +102,97 @@ SELECT COUNT (DISTINCT main_artist_musicbrainz_id) FROM ws.artistsmb;
 (1 row)
 */
 
-SELECT * FROM musicbrainz.artist WHERE gid='56a764a5-2646-4c5b-be28-f0100e322c82';
-SELECT b.* FROM musicbrainz.artist a
-INNER JOIN  musicbrainz.artist_alias b ON a.id=b.artist
-WHERE a.gid='56a764a5-2646-4c5b-be28-f0100e322c82';
+-- The table with the best matching statistics to compare
+DROP TABLE IF EXISTS ws.artistsmb_unique;
+CREATE TABLE ws.artistsmb_unique AS
+SELECT DISTINCT ON (a.wsid) a.wsid, a.wsname, a.mbname1, a.similarity, a.levdis1, a.maxchar1, a.genres, a.rwsids, a.rmbids, a.percenmbids, a.gid, a.main_artist_musicbrainz_id 
+FROM ws.artistsmb a
+ORDER BY a.wsid, a.levdis1 ASC, a.similarity DESC;
+/*
+SELECT 92159
+*/
 
-SELECT similarity('Hideki Kaji', 'Kaji, Hideki');
+SELECT * FROM ws.artistsmb_unique ORDER BY wsid LIMIT 100;
+CREATE INDEX autrgm_idx ON ws.artistsmb_unique USING GIN (wsname gin_trgm_ops);
+CREATE INDEX auidx_name ON ws.artistsmb_unique (wsname);
+CREATE INDEX auidx_wsaid ON ws.artistsmb_unique (wsid);
+CREATE INDEX auidx_mbaid ON ws.artistsmb_unique (gid);
+
+\d ws.artistsmb_unique
+
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
---
+-- STATISTICS
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
+
+-- COUNT # OF DISTINCTS WSIDS WITH GID INFO
+SELECT COUNT(DISTINCT wsid) FROM ws.artistsmb_unique WHERE gid IS NOT NULL;
+/*
+count 
+-------
+ 61821
+(1 row)
+*/
+
+-- COUNT # OF DISTINCTS GID
+SELECT COUNT(DISTINCT gid) FROM ws.artistsmb_unique;
+/*
+ count 
+-------
+ 61041
+(1 row)
+*/
+
+/*
+
+
+SELECT DISTINCT ON (gid) gid, mbname1, similarity, levdis1, FROM ws.artistsmb_unique 
+ORDER BY levdis1 ASC, similarity DESC;
+*/
+
+
+-- GET GIDS WITH MORE THAN ONE WSID
+SELECT gid, COUNT(wsid) FROM ws.artistsmb_unique 
+WHERE gid IS NOT NULL
+GROUP BY gid
+HAVING COUNT(wsid)>1
+ORDER BY COUNT(wsid) DESC;
+
+
+
+
+SELECT * FROM ws.artistsmb_unique WHERE gid='ea9078ef-20ca-4506-81ea-2ae5fe3a42e8';
+
+SELECT * FROM ws.records WHERE main_artist_musicbrainz_id='152a5f9a-b0e2-42c4-ab71-c559352cc235';
+SELECT * FROM ws.records WHERE main_artist_musicbrainz_id='ea9078ef-20ca-4506-81ea-2ae5fe3a42e8';
+
+SELECT * FROM musicbrainz.recording WHERE gid='6740d0da-5063-40a1-91e8-55c7d46c4151';
+
+
+-- TABLE OF MBIDS WITH COMPLETE SONGS
+DROP TABLE IF EXISTS ws.artistsmb_unique_m;
+CREATE TABLE ws.artistsmb_unique_m AS
+SELECT b.gid, string_agg(DISTINCT a.main_genre, ', ' ORDER BY a.main_genre) AS genres, COUNT(DISTINCT a.id) AS rwsids, COUNT(DISTINCT a.musicbrainz_id) AS rmbids, COUNT(DISTINCT a.musicbrainz_id)/COUNT(DISTINCT a.id)::FLOAT8 AS percenmbids
+FROM ws.records a
+INNER JOIN ws.artistsmb_unique b
+ON a.main_artist_id=b.wsid
+WHERE b.gid IS NOT NULL
+GROUP BY b.gid;
+/*
+SELECT 61041
+*/
+
+SELECT * FROM ws.artistsmb_unique_m LIMIT 100;
+SELECT COUNT(*) FROM ws.artistsmb_unique_m WHERE percenmbids=1;
+/*
+ count 
+-------
+ 22012
+(1 row)
+*/
+
+
 
 -- Statistics of artists with MB-artist ID
 SELECT genres, COUNT(*) FROM ws.artists WHERE main_artist_musicbrainz_id IS NULL GROUP BY genres ORDER BY COUNT(*);

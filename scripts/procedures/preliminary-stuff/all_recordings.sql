@@ -7,32 +7,52 @@
 DROP TABLE IF EXISTS ws.records;
 CREATE TABLE ws.records AS
 	SELECT DISTINCT
-			des_id AS id,
-			des_name AS name,
-			des_release_year AS release_year,
-			des_main_genre AS main_genre,
-			des_main_artist_id AS main_artist_id,
-			des_main_artist_name AS main_artist_name,
-			des_youtube_id AS youtube_id,
-			des_musicbrainz_id AS musicbrainz_id, 
-			des_main_artist_musicbrainz_id AS main_artist_musicbrainz_id
-		FROM ws.main
+			a.des_id AS id,
+			a.des_name AS name,
+			a.des_release_year AS release_year,
+			a.des_main_genre AS main_genre,
+			a.des_main_artist_id AS main_artist_id,
+			a.des_main_artist_name AS main_artist_name,
+			a.des_youtube_id AS youtube_id,
+			a.des_musicbrainz_id AS musicbrainz_id, 
+			a.des_main_artist_musicbrainz_id AS main_artist_musicbrainz_id,
+			b.id AS mbid
+		FROM ws.main a
+		LEFT JOIN (SELECT c.id, c.gid 
+				FROM musicbrainz.recording c
+			    UNION
+			    SELECT d.new_id AS id, d.gid 
+				FROM musicbrainz.recording_gid_redirect d) b
+		ON a.des_musicbrainz_id=b.gid
 	UNION 
 	SELECT DISTINCT
-			sou_id AS id,
-			sou_name AS name,
-			sou_release_year AS release_year,
-			sou_main_genre AS main_genre,
-			sou_main_artist_id AS main_artist_id,
-			sou_main_artist_name AS main_artist_name,
-			sou_youtube_id AS youtube_id,
-			sou_musicbrainz_id AS musicbrainz_id, 
-			sou_main_artist_musicbrainz_id AS main_artist_musicbrainz_id
-		FROM ws.main;
+			a.sou_id AS id,
+			a.sou_name AS name,
+			a.sou_release_year AS release_year,
+			a.sou_main_genre AS main_genre,
+			a.sou_main_artist_id AS main_artist_id,
+			a.sou_main_artist_name AS main_artist_name,
+			a.sou_youtube_id AS youtube_id,
+			a.sou_musicbrainz_id AS musicbrainz_id, 
+			a.sou_main_artist_musicbrainz_id AS main_artist_musicbrainz_id,
+			b.id AS mbid
+		FROM ws.main a
+		LEFT JOIN (SELECT c.id, c.gid 
+				FROM musicbrainz.recording c
+			    UNION
+			    SELECT d.new_id AS id, d.gid 
+				FROM musicbrainz.recording_gid_redirect d) b
+		ON a.sou_musicbrainz_id=b.gid;
 /*
-SELECT 404828
+SELECT 404.828
 */
 
+SELECT * FROM ws.records LIMIT 100;
+
+\d ws.records
+CREATE INDEX records_idx ON ws.records (musicbrainz_id);
+CREATE INDEX records_artist_idx ON ws.records (main_artist_musicbrainz_id);
+CREATE INDEX records_mbid_idx ON ws.records (mbid);
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 -- There is a repeated ID, SO I delete one
@@ -77,15 +97,49 @@ Problem with release date
 DELETE FROM ws.records
   WHERE id = '64015' AND release_year = '1998';
 
-CREATE INDEX mb_idx ON ws.records (musicbrainz_id);
-CREATE INDEX mb_artist_idx ON ws.records (main_artist_musicbrainz_id);
-
+\d ws.main
+\d musicbrainz.recording
 
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 -- COUNTINGS
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
+
+SELECT COUNT(DISTINCT id) FROM ws.records WHERE mbid IS NOT NULL;
+/*
+ count  
+--------
+ 236.703
+(1 row)
+*/
+
+SELECT COUNT(DISTINCT id) FROM ws.records WHERE musicbrainz_id IS NOT NULL;
+/*
+ count  
+--------
+ 236.723
+(1 row)
+*/
+
+SELECT COUNT(DISTINCT mbid) FROM ws.records;
+/*
+ count  
+--------
+ 232.439
+(1 row)
+*/
+
+SELECT COUNT(DISTINCT musicbrainz_id) FROM ws.records;
+/*
+ count  
+--------
+ 232.482
+(1 row)
+*/
+
+
+
 
 -- Number of tracks with MB recording ID
 SELECT COUNT(DISTINCT id)
@@ -299,4 +353,138 @@ SELECT COUNT(DISTINCT id)
 
 
 
+SELECT CHAR_LENGTH(name), COUNT(*) FROM ws.records GROUP BY CHAR_LENGTH(name) ORDER BY CHAR_LENGTH(name) DESC;
+SELECT * FROM ws.records WHERE CHAR_LENGTH(name)=1 LIMIT 100;
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- TABLE WITH ALL RECORD NAMES, ALIASES AND INTERNAL MB ID (IT ISN'T THE GID) 
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
 
+DROP TABLE IF EXISTS ws.mb_recordnames;
+CREATE TABLE ws.mb_recordnames AS
+	SELECT DISTINCT name, UPPER(name) AS upname, id
+		FROM musicbrainz.recording
+		WHERE CHAR_LENGTH(name)<90
+	UNION
+	SELECT DISTINCT name, UPPER(name) AS upname, recording AS id
+		FROM musicbrainz.recording_alias
+		WHERE CHAR_LENGTH(name)<90
+	UNION
+	SELECT DISTINCT sort_name AS name, UPPER(sort_name) AS upname, recording AS id
+		FROM musicbrainz.recording_alias
+		WHERE name!=sort_name AND CHAR_LENGTH(sort_name)<90;
+/*
+SELECT 19.332.271
+*/
+
+SELECT name, sort_name
+FROM musicbrainz.recording_alias
+WHERE name!=sort_name
+LIMIT 100;
+
+
+
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Recordings with ISRC
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+
+SELECT COUNT(DISTINCT mbid) FROM ws.records;
+/*
+ count  
+--------
+ 232.439
+(1 row)
+*/
+
+
+SELECT COUNT(DISTINCT a.mbid) 
+	FROM ws.records a
+	INNER JOIN musicbrainz.isrc b
+	ON a.mbid=b.recording;
+/*
+ count 
+-------
+ 46.098
+(1 row)
+*/
+
+
+DROP TABLE IF EXISTS ws.records_isrc;
+CREATE TABLE ws.records_isrc AS
+SELECT a.id AS wsid, a.name AS wsname, b.isrc, a.release_year, a.main_genre, a.main_artist_id, a.main_artist_name, a.youtube_id, d.view_count, c.gid AS mb_r_id, a.main_artist_musicbrainz_id AS mb_a_id
+	FROM ws.records a
+	INNER JOIN musicbrainz.isrc b
+	ON a.mbid=b.recording
+	INNER JOIN musicbrainz.recording c
+	ON a.mbid=c.id
+	LEFT JOIN  ws.youtube d
+	ON a.youtube_id=d.youtube_id;
+\copy ws.records_isrc TO '/home/christian/github_new/music_sampling/output/records_isrc.csv' with csv header QUOTE '"'
+/*
+SELECT 53997
+
+c.name AS mbname, */
+
+
+SELECT * FROM ws.records LIMIT 2;
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Recordings with any information on location
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+
+SELECT COUNT(DISTINCT a.mbid) 
+	FROM ws.records a
+	INNER JOIN musicbrainz.l_place_recording b
+	ON a.mbid=b.entity1;
+/*
+ count 
+-------
+ 12.248
+(1 row)
+*/
+
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Recordings with samples
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+SELECT COUNT(DISTINCT a.mbid) 
+	FROM ws.records a
+	INNER JOIN musicbrainz.l_recording_release b
+	ON a.mbid=b.entity0;
+/*
+ count 
+-------
+    25
+(1 row)
+*/
+
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Recordings with release and country
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+SELECT COUNT(DISTINCT a.mbid) 
+	FROM ws.records a
+	INNER JOIN musicbrainz.track b
+	ON a.mbid=b.recording
+	INNER JOIN musicbrainz.medium c
+	ON b.medium=c.id
+	INNER JOIN musicbrainz.release d
+	ON c.release=d.id
+	INNER JOIN musicbrainz.release_country e
+	ON d.id=e.release;
+/*
+ count  
+--------
+ 225.222
+(1 row)
+*/

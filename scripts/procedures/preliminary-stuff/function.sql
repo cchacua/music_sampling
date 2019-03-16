@@ -42,14 +42,41 @@ SELECT ws.dlevenshteinstring('Willie Colon', 'Willie Colón', 1 );
 select metaphone('조성모',5);
 select metaphone('Jo Sung Mo',5);
 
+
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
--- FUNCTION THAT EXTRACT SIMILAR VALUES AND IDS 
+-- Function dlevenshteintablenrows taking first nrows
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION ws.dlevenshteintablenrows(IN namevalue VARCHAR, IN nrows INT, IN _tablename regclass, IN _columname TEXT, IN _columnid TEXT)
+	RETURNS TABLE ( id VARCHAR,
+			string VARCHAR, 
+			distance FLOAT8) 
+	AS $$
+	BEGIN
+		RETURN QUERY
+		EXECUTE format('SELECT %5$s::VARCHAR,  %4$s, 
+		levenshtein(upper(%4$s), upper(%2$L))/greatest(length(%4$s), length(%2$L))::FLOAT8 AS dis
+	     FROM %1$s
+	     WHERE CHAR_LENGTH(%4$s)<250
+	     ORDER BY dis
+	     LIMIT  %3$s', _tablename, namevalue, nrows, _columname, _columnid);
+	END;
+	$$
+	LANGUAGE 'plpgsql';
+
+
+SELECT * FROM ws.dlevenshteintablenrows('1986 Omega Tribe', 4, 'musicbrainz.artist', 'name', 'gid');
+
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- FUNCTION THAT EXTRACT SIMILAR VALUES AND IDS according to a threshold
 -- ATTENTION: HERE I AM CONSIDERING ONLY STRINGS WITH LESS THAN 250 CHARACTERS, BECAUSE OF THE LIMITS OF THE levenshtein FUNCTION
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION ws.dlevestein(IN namevalue VARCHAR, IN threshold FLOAT8, IN _tablename regclass, IN _columname TEXT, IN _columnid TEXT)
+CREATE OR REPLACE FUNCTION ws.dlevenshteintable(IN namevalue VARCHAR, IN threshold FLOAT8, IN _tablename regclass, IN _columname TEXT, IN _columnid TEXT)
 	RETURNS TABLE ( id VARCHAR,
 			string VARCHAR, 
 			distance FLOAT8) 
@@ -65,14 +92,14 @@ CREATE OR REPLACE FUNCTION ws.dlevestein(IN namevalue VARCHAR, IN threshold FLOA
 	$$
 	LANGUAGE 'plpgsql';
 
-SELECT * FROM ws.dlevestein('Willie Colon', 0.1, 'ws.artists', 'main_artist_name', 'main_artist_musicbrainz_id');
+SELECT * FROM ws.dlevenshteintable('Willie Colon', 0.1, 'ws.artists', 'main_artist_name', 'main_artist_musicbrainz_id');
 
-SELECT * FROM ws.dlevestein('SNOOP DOG', 0.2, 'musicbrainz.artist', 'name', 'gid');
+SELECT * FROM ws.dlevenshteintable('SNOOP DOG', 0.2, 'musicbrainz.artist', 'name', 'gid');
 
-SELECT * FROM ws.dlevestein('1986 Omega Tribe', 0.4, 'musicbrainz.artist', 'name', 'gid');
-SELECT * FROM ws.dlevestein('1986 オメガトライブ', 0.4, 'musicbrainz.artist', 'name', 'gid');
-SELECT * FROM ws.dlevestein('1986 オメガトライブ', 0.4, 'musicbrainz.artist_alias', 'name', 'artist');
-SELECT * FROM ws.dlevestein('1986 Omega Tribe', 0.4, 'musicbrainz.artist_alias', 'name', 'artist');
+SELECT * FROM ws.dlevenshteintable('1986 Omega Tribe', 0.4, 'musicbrainz.artist', 'name', 'gid');
+SELECT * FROM ws.dlevenshteintable('1986 オメガトライブ', 0.4, 'musicbrainz.artist', 'name', 'gid');
+SELECT * FROM ws.dlevenshteintable('1986 オメガトライブ', 0.4, 'musicbrainz.artist_alias', 'name', 'artist');
+SELECT * FROM ws.dlevenshteintable('1986 Omega Tribe', 0.4, 'musicbrainz.artist_alias', 'name', 'artist');
 
 
 	

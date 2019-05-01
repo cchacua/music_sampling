@@ -1,3 +1,29 @@
+-- SOME QUERY TEST
+SELECT a.* FROM ws.main a LIMIT 10 OFFSET 2;
+SELECT a.* FROM ws.main a WHERE a.connection_id=240730;
+SELECT a.* FROM ws.main a WHERE a.connection_id=261886;
+
+SELECT a.sou_id, a.sou_name, a.sou_musicbrainz_id, a.des_id, a.des_name FROM ws.main a LIMIT 10;
+
+SELECT a.sou_name, COUNT(DISTINCT a.sou_musicbrainz_id)
+ FROM ws.main a 
+ GROUP BY a.sou_name
+ HAVING COUNT(DISTINCT a.sou_musicbrainz_id)>1
+ LIMIT 100;
+
+SELECT a.sou_id, COUNT(DISTINCT a.sou_musicbrainz_id)
+ FROM ws.main a 
+ GROUP BY a.sou_id
+ HAVING COUNT(DISTINCT a.sou_musicbrainz_id)>1
+ LIMIT 100;
+
+SELECT a.sou_id, COUNT(DISTINCT a.sou_name)
+ FROM ws.main a 
+ GROUP BY a.sou_id
+ HAVING COUNT(DISTINCT a.sou_name)>1
+ LIMIT 100;
+
+
 -- Retrieving songs that have MB_ID but that cannot be joint
 
 -- Counting recording_ID

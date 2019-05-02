@@ -61,3 +61,8 @@ SELECT a.* FROM ws.main a LIMIT 10;
 CREATE INDEX des_idx ON ws.main (des_musicbrainz_id);
 CREATE INDEX sou_idx ON ws.main (sou_musicbrainz_id);
 
+CREATE INDEX wsmain_des_main_artist_idx ON ws.main (des_main_artist_id);
+CREATE INDEX wsmain_sou_main_artist_idx ON ws.main (sou_main_artist_id);
+
+CREATE INDEX wsmain_des_idx ON ws.main (des_id);
+CREATE INDEX wsmain_sou_idx ON ws.main (sou_id);

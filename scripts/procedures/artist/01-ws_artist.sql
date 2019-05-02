@@ -1,3 +1,6 @@
+\connect musicbrainz;
+\timing
+
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 -- Table only artist info in WS 
@@ -48,4 +51,33 @@ CREATE INDEX
 Time: 77,133 ms
 */
 
+-- Add Column, found in destination
+ALTER TABLE ws.artist DROP COLUMN IF EXISTS des;
+ALTER TABLE ws.artist ADD COLUMN des BOOLEAN;
+UPDATE ws.artist p SET des=
+       (SELECT TRUE
+        FROM ws.artist a
+	INNER JOIN (SELECT DISTINCT c.des_main_artist_id 
+			FROM ws.main c) b
+        ON a.id=b.des_main_artist_id
+        WHERE a.id=p.id);
+/*
+UPDATE 92159
+Time: 1089,671 ms (00:01,090)
+*/
 
+
+-- Add Column, found in source
+ALTER TABLE ws.artist DROP COLUMN IF EXISTS sou;
+ALTER TABLE ws.artist ADD COLUMN sou BOOLEAN;
+UPDATE ws.artist p SET sou=
+       (SELECT TRUE
+        FROM ws.artist a
+	INNER JOIN (SELECT DISTINCT c.sou_main_artist_id 
+			FROM ws.main c) b
+        ON a.id=b.sou_main_artist_id
+        WHERE a.id=p.id);
+/*
+UPDATE 92159
+Time: 1468,828 ms (00:01,469)
+*/

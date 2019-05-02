@@ -1,3 +1,6 @@
+\connect musicbrainz;
+\timing
+
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 -- Table only recording info in WS 
@@ -58,4 +61,38 @@ CREATE UNIQUE INDEX wsrecording_idx ON ws.recording (id);
 /*
 CREATE INDEX
 Time: 145,383 ms
+*/
+CREATE INDEX wsrecording_unamex1 ON ws.recording USING GIN (uname gin_trgm_ops);
+CREATE INDEX wsrecording_unamex2 ON ws.recording USING GIN(to_tsvector('mb_simple', uname));
+CREATE INDEX wsrecording_unamex3 ON ws.recording (uname);
+
+
+-- Add Column, found in destination
+ALTER TABLE ws.recording DROP COLUMN IF EXISTS des;
+ALTER TABLE ws.recording ADD COLUMN des BOOLEAN;
+UPDATE ws.recording p SET des=
+       (SELECT TRUE
+        FROM ws.recording a
+	INNER JOIN (SELECT DISTINCT c.des_id 
+			FROM ws.main c) b
+        ON a.id=b.des_id
+        WHERE a.id=p.id);
+/*
+UPDATE 404827
+Time: 17203,675 ms (00:17,204)
+*/
+
+-- Add Column, found in source
+ALTER TABLE ws.recording DROP COLUMN IF EXISTS sou;
+ALTER TABLE ws.recording ADD COLUMN sou BOOLEAN;
+UPDATE ws.recording p SET sou=
+       (SELECT TRUE
+        FROM ws.recording a
+	INNER JOIN (SELECT DISTINCT c.sou_id 
+			FROM ws.main c) b
+        ON a.id=b.sou_id
+        WHERE a.id=p.id);
+/*
+UPDATE 404827
+Time: 16083,534 ms (00:16,084)
 */

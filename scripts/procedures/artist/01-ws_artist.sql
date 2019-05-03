@@ -81,3 +81,8 @@ UPDATE ws.artist p SET sou=
 UPDATE 92159
 Time: 1468,828 ms (00:01,469)
 */
+
+
+CREATE INDEX artist_unamex1 ON ws.artist USING GIN (uname gin_trgm_ops);
+CREATE INDEX artist_unamex2 ON ws.artist USING GIN(to_tsvector('mb_simple', uname));
+CREATE INDEX artist_unamex3 ON ws.artist (uname);

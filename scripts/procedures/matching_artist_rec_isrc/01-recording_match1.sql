@@ -42,4 +42,5 @@ SELECT COUNT(DISTINCT mbrecording) FROM ws.recording_matchname1;
 (1 row)
 */
 
-
+CREATE INDEX wsrecordingmatchname1_wsrecordingx ON ws.recording_matchname1 (wsrecording);
+CREATE INDEX wsrecordingmatchname1_mbrecordingx ON ws.recording_matchname1 (mbrecording);

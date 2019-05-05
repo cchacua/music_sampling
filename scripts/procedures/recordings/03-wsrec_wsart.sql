@@ -23,3 +23,5 @@ Time: 1065,778 ms (00:01,066)
 
 CREATE INDEX wswsrecwsart_wsrecordingx ON ws.wsrec_wsart (wsrecording);
 CREATE INDEX wswsrecwsart_wsartistx ON ws.wsrec_wsart (wsartist);
+
+SELECT * FROM ws.wsrec_wsart LIMIT 10;

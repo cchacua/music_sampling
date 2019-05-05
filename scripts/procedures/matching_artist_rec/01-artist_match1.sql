@@ -21,7 +21,7 @@ Time: 1334,570 ms (00:01,335)
 */
 
 ---------------------------------------------------------------------
--- 01 - Exact matching of recording names
+-- 01 - Exact matching of artist names
 ---------------------------------------------------------------------
 
 DROP TABLE IF EXISTS ws.artist_matchname1;
@@ -57,6 +57,5 @@ SELECT COUNT(DISTINCT mbartist) FROM ws.artist_matchname1;
 
 CREATE INDEX artistmatchname1_wsartistx ON ws.artist_matchname1 (wsartist);
 CREATE INDEX artistmatchname1_mbartistx ON ws.artist_matchname1 (mbartist);
-
 
 

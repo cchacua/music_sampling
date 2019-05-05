@@ -79,7 +79,7 @@ WHERE CHAR_LENGTH(b.upname)<70;
 
 EXPLAIN ANALYZE SELECT a.wsid, a.wsname, c.name AS mbname, c.id AS mbid, c.dis 
 FROM ws.artists_tf1_test a
-,   LATERAL (
+,  LATERAL (
    SELECT b.name, b.id, LEVENSHTEIN(a.uwsname, b.upname)/greatest(length(a.uwsname), length(b.upname))::FLOAT8 AS dis
    FROM   ws.mb_artistnames b
    WHERE  CHAR_LENGTH(b.upname)<70 AND LEVENSHTEIN(a.uwsname, b.upname)/greatest(length(a.uwsname), length(b.upname))::FLOAT8 < 0.4
